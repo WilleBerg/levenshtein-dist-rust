@@ -1,8 +1,10 @@
 use std::cmp::min;
 use std::io;
+use std::collections::HashMap;
 
 fn main() {
-    let cities: Vec<String> = std::fs::read_to_string("./places.txt").unwrap().lines().map(|s| s.to_string()).collect();
+    let cities: Vec<String> = std::fs::read_to_string("./files.txt").unwrap().lines().map(|s| s.to_string()).collect();
+    let data_ngram = generate_ngrams(3, &cities);
     loop {
         println!("Enter search term");
         let mut input = String::new();
@@ -11,26 +13,87 @@ fn main() {
         if cleaned_input.to_lowercase() == "exit".to_string() {
             std::process::exit(0);
         }
-
+        let input_ngrams = generate_ngram(3, &cleaned_input);
         let mut result: Vec<(String, u32)> = vec![];
-        for city in &cities {
-            let lev_dist = lev_dist_v2(&city, &cleaned_input);
-            if lev_dist < 5 {
-                result.push((city.clone(), lev_dist));
+        // for city in &cities {
+        //     let lev_dist = lev_dist_v2(&city, &cleaned_input);
+        //     // if lev_dist < 5 {
+        //         result.push((city.clone(), lev_dist));
+        //     // }
+        // }
+
+        let mut matching: Vec<String> = vec![];
+        for ngram in input_ngrams {
+            if let Some(val) = data_ngram.get(&ngram) {
+                for entry in val {
+                    if !matching.contains(&entry) {
+                        matching.push(entry.clone()); 
+                    }
+                }
             }
+        }
+        for m in &matching{
+            let lev_dist = lev_dist_v2(&m, &cleaned_input);
+            // if lev_dist < 5 {
+                result.push((m.clone(), lev_dist));
+            // }
         }
         result.sort_by_key(|e| e.1);
         let mut counter = 0;
         for res in result {
-            let full: u32 = cleaned_input.len() as u32;
-            let match_prc: f32 = (full - res.1) as f32 / full as f32;
-            println!("{}, {:.2}", res.0, match_prc * 100.0);
+            // let full: u32 = cleaned_input.len() as u32;
+            // let match_prc: f32 = (full - res.1) as f32 / full as f32;
+            // println!("{}, {:.2}", res.0, match_prc * 100.0);
+            println!("{}, {}", res.0, res.1);
             if counter == 10 {
                 break;
             }
             counter += 1;
         }
     }
+    // let mut result: Vec<(String, u32)> = vec![];
+    // for city in &cities {
+    //     let lev_dist = lev_dist_v2(&city, &"London".to_string());
+    //     // if lev_dist < 5 {
+    //         result.push((city.clone(), lev_dist));
+    //     // }
+    // }
+    // result.sort_by_key(|e| e.1);
+    // let mut counter = 0;
+    // for res in result {
+    //     let full: u32 = "London".len() as u32;
+    //     // let full: u32 = cleaned_input.len() as u32;
+    //     let match_prc: f32 = (full - res.1) as f32 / full as f32;
+    //     println!("{}, {:.2}", res.0, match_prc * 100.0);
+    //     if counter == 10 {
+    //         break;
+    //     }
+    //     counter += 1;
+    // }
+}
+
+fn generate_ngrams(size: u32, vec: &Vec<String>) -> HashMap<String, Vec<String>> {
+    let mut hmap: HashMap<String, Vec<String>> = HashMap::new();
+    for entry in vec {
+        for i in 0..(entry.len() - size as usize) {
+            let ngram = entry.get((0 + i)..(size as usize + i)).unwrap().to_string();
+            if hmap.contains_key(&ngram) {
+                hmap.get_mut(&ngram).unwrap().push(entry.clone());
+            } else {
+                hmap.insert(ngram, vec![entry.clone()]);
+            }
+        }
+    }
+    hmap
+}
+
+fn generate_ngram(size: u32, word: &String) -> Vec<String> {
+    let mut rvec: Vec<String> = vec![];
+    for i in 0..(word.len() - size as usize) {
+        let ngram = word.get((0 + i)..(size as usize + i)).unwrap().to_string();
+        rvec.push(ngram);
+    }
+    rvec
 }
 
 fn _lev_dist(s1: &String, s2: &String) -> usize {
@@ -83,7 +146,7 @@ fn lev_dist_v2(s: &String, t: &String) -> u32 {
             let ins_cost = v1.get(j).unwrap() + 1;
             let sub_cost: u32;
             if s.chars().nth(i as usize).unwrap() == t.chars().nth(j).unwrap() {
-                sub_cost = *v0.get(j).unwrap(); 
+                sub_cost = *v0.get(j).unwrap();
             } else {
                 sub_cost = *v0.get(j).unwrap() + 1;
             }
@@ -91,5 +154,5 @@ fn lev_dist_v2(s: &String, t: &String) -> u32 {
         }
         v0 = v1.clone();
     }
-    v0[t.len()] 
+    v0[t.len()]
 }
