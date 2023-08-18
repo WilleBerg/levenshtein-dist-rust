@@ -3,141 +3,162 @@ use std::cmp::min;
 use std::collections::HashMap;
 use std::env::args;
 
+const MAX_NGRAMS: u32 = 100_000;
+const PRINT_DEBUG: bool = true;
+const NGRAM_WEIGHT: u32 = 0;
+
 fn main() {
-    // loop {
-    //     println!("Enter search term");
-    //     let mut input = String::new();
-    //     io::stdin().read_line(&mut input).expect("Failed to read input");
-    //     let cleaned_input = input.trim().to_string();
-    //     if cleaned_input.to_lowercase() == "exit".to_string() {
-    //         std::process::exit(0);
-    //     }
-    //     let input_ngrams = generate_ngram(3, &cleaned_input);
-    //     let mut result: Vec<(String, u32)> = vec![];
-    //     // for city in &cities {
-    //     //     let lev_dist = lev_dist_v2(&city, &cleaned_input);
-    //     //     // if lev_dist < 5 {
-    //     //         result.push((city.clone(), lev_dist));
-    //     //     // }
-    //     // }
-    //
-    //     let mut matching: Vec<String> = vec![];
-    //     for ngram in input_ngrams {
-    //         if let Some(val) = data_ngram.get(&ngram) {
-    //             for entry in val {
-    //                 if !matching.contains(&entry) {
-    //                     matching.push(entry.clone()); 
-    //                 }
-    //             }
-    //         }
-    //     }
-    //     for m in &matching{
-    //         let lev_dist = lev_dist_v2(&m, &cleaned_input);
-    //         // if lev_dist < 5 {
-    //             result.push((m.clone(), lev_dist));
-    //         // }
-    //     }
-    //     result.sort_by_key(|e| e.1);
-    //     let mut counter = 0;
-    //     for res in result {
-    //         // let full: u32 = cleaned_input.len() as u32;
-    //         // let match_prc: f32 = (full - res.1) as f32 / full as f32;
-    //         // println!("{}, {:.2}", res.0, match_prc * 100.0);
-    //         println!("{}, {}", res.0, res.1);
-    //         if counter == 10 {
-    //             break;
-    //         }
-    //         counter += 1;
-    //     }
-    // }
     let args = args().collect::<Vec<String>>();
     let input= &args[1];
     // run_ngram_approach(input);
     run_ngram_approach_v2(input);
 }
 
-fn run_ngram_approach(input: &String) {
-    let cities: Vec<String> = std::fs::read_to_string("./files.txt").unwrap().lines().map(|s| s.to_string()).collect();
-    let data_ngram = generate_ngrams(3, &cities);
+// fn run_ngram_approach(input: &String) {
+//     // let cities: Vec<String> = std::fs::read_to_string("./files.txt").unwrap().lines().map(|s| s.to_string()).collect();
+//     // let data_ngram = generate_ngrams(3, &cities);
+//     // let input_ngrams = generate_ngram(3, &input);
+//     // let mut result: Vec<(String, u32)> = vec![];
+//     // let mut matching: Vec<String> = vec![];
+//     // for ngram in input_ngrams {
+//     //     if let Some(val) = data_ngram.get(&ngram) {
+//     //         for entry in val {
+//     //             if !matching.contains(&entry) {
+//     //                 matching.push(entry.clone()); 
+//     //             }
+//     //         }
+//     //     }
+//     // }
+//     // for m in &matching{
+//     //     let lev_dist = lev_dist_v2(&m, &input);
+//     //     // if lev_dist < 5 {
+//     //         result.push((m.clone(), lev_dist));
+//     //     // }
+//     // }
+//     // result.sort_by_key(|e| e.1);
+//     // for res in result {
+//     //     // let full: u32 = "London".len() as u32;
+//     //     // let full: u32 = cleaned_input.len() as u32;
+//     //     // let match_prc: f32 = (full - res.1) as f32 / full as f32;
+//     //     println!("{}, {}", res.0, res.1);
+//     // }
+// }
+
+fn run_ngram_approach_v2(input: &String) {
+    let print_verbose = if PRINT_DEBUG { 
+        | s: &str | {
+            println!("{}", s); 
+        }
+    } else {
+        |_s: &str| {}
+    };
+    
+    let mut result: Vec<(&String, i32)> = vec![];
+    let mut amount_matching_ngrams: HashMap<String, u32> = HashMap::new();
+    print_verbose("Reading cache file");
+    let mut current_line: u32 = 0;
+    let cache_line: Vec<String> = std::fs::read_to_string("./cache.txt").unwrap().lines().map(|s| s.to_string()).collect();
     let input_ngrams = generate_ngram(3, &input);
-    let mut result: Vec<(String, u32)> = vec![];
-    let mut matching: Vec<String> = vec![];
-    for ngram in input_ngrams {
-        if let Some(val) = data_ngram.get(&ngram) {
-            for entry in val {
-                if !matching.contains(&entry) {
-                    matching.push(entry.clone()); 
+    print_verbose("Beginning ngram creation");
+    loop {
+        print_verbose(format!("Size of hashmap: {}", amount_matching_ngrams.len()).as_str());
+        let mut tmp: Vec<&String> = vec![];
+        loop {
+            // print_verbose(format!("{}", current_line).as_str());
+            tmp.push(if let Some(val) = cache_line.get(current_line as usize) {
+                    &val
+                } else { 
+                    current_line += 1; continue 
+                }
+            );
+            current_line += 1;
+            if current_line % MAX_NGRAMS == 0 || current_line >= cache_line.len() as u32 {
+                break;
+            }
+        }
+        print_verbose("Generating ngrams");
+        let data_ngram = generate_ngrams(3, &tmp);
+        print_verbose("Done");
+        for ngram in &input_ngrams {
+            if let Some(val) = data_ngram.get(ngram) {
+                for entry in val {
+                    let e = amount_matching_ngrams.entry((*entry).clone()).or_insert(0);
+                    *e += 1;
                 }
             }
         }
-    }
-    for m in &matching{
-        let lev_dist = lev_dist_v2(&m, &input);
-        // if lev_dist < 5 {
-            result.push((m.clone(), lev_dist));
-        // }
-    }
-    result.sort_by_key(|e| e.1);
-    for res in result {
-        // let full: u32 = "London".len() as u32;
-        // let full: u32 = cleaned_input.len() as u32;
-        // let match_prc: f32 = (full - res.1) as f32 / full as f32;
-        println!("{}, {}", res.0, res.1);
-    }
-}
-
-fn run_ngram_approach_v2(input: &String) {
-    let cities: Vec<String> = std::fs::read_to_string("./files.txt").unwrap().lines().map(|s| s.to_string()).collect();
-    let data_ngram = generate_ngrams(3, &cities);
-    let input_ngrams = generate_ngram(3, &input);
-    let mut result: Vec<(String, i32)> = vec![];
-    let mut amount_matching_ngrams: HashMap<String, u32> = HashMap::new();
-    for ngram in input_ngrams {
-        if let Some(val) = data_ngram.get(&ngram) {
-            for entry in val {
-                let e = amount_matching_ngrams.entry(entry.clone()).or_insert(0);
-                *e += 1;
-            }
+        if current_line >= cache_line.len() as u32 {
+            break;
         }
     }
+    print_verbose("Done creating ngrams, now filling result"); 
     for (k,_) in &amount_matching_ngrams{
         let lev_dist = lev_dist_v2(&k, &input);
-        // if lev_dist < 5 {
-            result.push((k.clone(), lev_dist as i32));
-        // }
+        result.push((&k, lev_dist as i32));
     }
-    result.sort_by_key(|e| e.1 - (*amount_matching_ngrams.get(&e.0).unwrap_or(&0) * 8) as i32);
-    for res in result {
+    print_verbose("Done filling, now sorting result");
+    result.sort_by_key(|e| e.1 - (*amount_matching_ngrams.get(e.0).unwrap_or(&0) * NGRAM_WEIGHT) as i32);
+    let mut c = 0;
+    println!("Top results:");
+    for res in &result {
         // let full: u32 = "London".len() as u32;
         // let full: u32 = cleaned_input.len() as u32;
         // let match_prc: f32 = (full - res.1) as f32 / full as f32;
-        println!("{}, {}", res.0, res.1 - (*amount_matching_ngrams.get(&res.0).unwrap_or(&0) * 8) as i32);
+        println!("{}, {}", res.0, res.1 - (*amount_matching_ngrams.get(res.0).unwrap_or(&0) * NGRAM_WEIGHT) as i32);
+        c += 1;
+        if c == 20 {
+            println!("...\n+ {} results.", result.len() - 20);
+            break;
+        }
     }
 }
 
-fn generate_ngrams(size: u32, vec: &Vec<String>) -> HashMap<String, Vec<String>> {
-    let mut hmap: HashMap<String, Vec<String>> = HashMap::new();
+fn generate_ngrams<'a>(size: u32, vec: &Vec<&'a String>) -> HashMap<String, Vec<&'a String>> {
+    let mut hmap: HashMap<String, Vec<&String>> = HashMap::new();
     for entry in vec {
-        if entry == "" {
+        // println!("{}", entry);
+        if *entry == "" {
             continue;
         }
         for i in 0..(entry.len() - size as usize) {
-        let ngram = match entry.get((0 + i)..(size as usize + i)) {
-            Some(val) => val.to_string(),
-            None => {
-                eprintln!("error creating ngram for {}", entry);
-                std::process::exit(1);
-            },
-        };
-            if hmap.contains_key(&ngram) {
-                hmap.get_mut(&ngram).unwrap().push(entry.clone());
-            } else {
-                hmap.insert(ngram, vec![entry.clone()]);
-            }
+            
+            let ngram = match entry.get((0 + i)..(size as usize + i)) {
+                Some(val) => val.to_string(),
+                None => {
+                    eprintln!("error creating ngram for {}", entry);
+                    continue;
+                },
+            };
+            let e = hmap.entry(ngram).or_insert(vec![]);
+            e.push(entry);
         }
     }
     hmap
 }
+
+fn generate_ngrams_bytes<'a>(size: u32, vec: &Vec<&'a String>) -> HashMap<String, Vec<&'a String>> {
+    let mut hmap: HashMap<String, Vec<&String>> = HashMap::new();
+    for entry in vec {
+        // println!("{}", entry);
+        if *entry == "" {
+            continue;
+        }
+        for i in 0..(entry.len() - size as usize) {
+            
+            let ngram = match entry.get((0 + i)..(size as usize + i)) {
+                Some(val) => val.to_string(),
+                None => {
+                    eprintln!("error creating ngram for {}", entry);
+                    continue;
+                },
+            };
+            let e = hmap.entry(ngram).or_insert(vec![]);
+            e.push(entry) ;
+        }
+    }
+    hmap
+}
+
 
 fn generate_ngram(size: u32, word: &String) -> Vec<String> {
     let mut rvec: Vec<String> = vec![];
@@ -196,11 +217,21 @@ fn lev_dist_v2(s: &String, t: &String) -> u32 {
 
     for i in 0..m {
         v1[0] = i + 1;
+
+        let s_nth = match s.chars().nth(i as usize) {
+            Some(char) => char,
+            None => '\0',
+        };
+
         for j in 0..t.len() { // n - 1
             let del_cost = v0.get(j + 1).unwrap() + 1;
             let ins_cost = v1.get(j).unwrap() + 1;
             let sub_cost: u32;
-            if s.chars().nth(i as usize).unwrap() == t.chars().nth(j).unwrap() {
+            let t_nth = match t.chars().nth(j) {
+                Some(char) => char,
+                None => '\0',
+            };
+            if s_nth == t_nth && s_nth != '\0'  {
                 sub_cost = *v0.get(j).unwrap();
             } else {
                 sub_cost = *v0.get(j).unwrap() + 1;
